@@ -16,7 +16,7 @@ export async function startTunnel(localPort, tunnelServer, clientId) {
     const { method, path, headers } = JSON.parse(data);
 
     try {
-      const response = await fetch(`http://localhost:${localPort}/${path}`, {
+      const response = await fetch(`http://localhost:${localPort}${path}`, {
         method,
         headers,
       });

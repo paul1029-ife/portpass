@@ -39,7 +39,7 @@ app.use("/:id", (req, res) => {
 
   const payload = {
     method: req.method,
-    path: req.path.substring(1),
+    path: req.path,
     headers: req.headers,
   };
 
