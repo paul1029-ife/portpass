@@ -1,12 +1,15 @@
 {
-  "name": "portpass-client",
+  "name": "portpass",
   "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "description": "Expose your local server to the internet instantly.",
+  "type": "module",
+  "bin": {
+    "portpass": "./bin/cli.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": ""
+  "main": "index.js",
+  "dependencies": {
+    "ws": "^8.17.0",
+    "node-fetch": "^3.3.2",
+    "nanoid": "^5.0.4"
+  }
 }
