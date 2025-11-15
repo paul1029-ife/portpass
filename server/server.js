@@ -1,12 +1,11 @@
 import express from "express";
 import { WebSocketServer } from "ws";
-import httpProxy from "http-proxy";
 import http from "http";
+import crypto from "crypto";
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
-const proxy = httpProxy.createProxyServer({});
 const clients = new Map();
 
 wss.on("connection", (ws, req) => {
@@ -21,18 +20,50 @@ wss.on("connection", (ws, req) => {
     return;
   }
 
-  clients.set(clientId, ws);
+  const clientData = {
+    ws,
+    pendingRequests: new Map(),
+  };
+  clients.set(clientId, clientData);
   console.log(`🔌 Client connected: ${clientId}`);
 
+  ws.on("message", (msg) => {
+    try {
+      const metaLength = msg.readUInt32BE(0);
+      const metaJSON = msg.subarray(4, 4 + metaLength).toString("utf8");
+      const { status, headers, requestId } = JSON.parse(metaJSON);
+      const bodyBuffer = msg.subarray(4 + metaLength);
+
+      const res = clientData.pendingRequests.get(requestId);
+
+      if (!res) {
+        console.warn(`[${requestId}] Received response for unknown request`);
+        return;
+      }
+
+      console.log(
+        `📤 [${requestId}] Response: ${status} (${bodyBuffer.length} bytes)`
+      );
+      res.writeHead(status, headers);
+      res.end(bodyBuffer);
+      clientData.pendingRequests.delete(requestId);
+    } catch (e) {
+      console.error("Error parsing binary message from client:", e);
+    }
+  });
+
   ws.on("close", () => {
+    clientData.pendingRequests.forEach((res) => {
+      res.status(503).send("Tunnel client disconnected.");
+    });
     clients.delete(clientId);
     console.log(`❌ Client disconnected: ${clientId}`);
   });
 });
 
 app.use("/:id", (req, res) => {
-  const client = clients.get(req.params.id);
-  if (!client) {
+  const clientData = clients.get(req.params.id);
+  if (!clientData) {
     console.log(`Request for unknown ID: ${req.params.id}`);
     return res.status(404).send("Tunnel not active");
   }
@@ -43,30 +74,19 @@ app.use("/:id", (req, res) => {
     }`
   );
 
+  const requestId = crypto.randomBytes(12).toString("hex");
+
   const payload = {
+    requestId,
     method: req.method,
     path: req.path,
     query: req.query,
     headers: req.headers,
   };
 
-  client.send(JSON.stringify(payload));
+  clientData.pendingRequests.set(requestId, res);
 
-  client.once("message", (msg) => {
-    try {
-      const { status, headers, body } = JSON.parse(msg.toString());
-
-      const bodyBuffer = Buffer.from(body, "base64");
-
-      console.log(`📤 Response: ${status} (${bodyBuffer.length} bytes)`);
-
-      res.writeHead(status, headers);
-      res.end(bodyBuffer);
-    } catch (e) {
-      console.error("Error parsing message from client:", e);
-      res.status(500).send("Error processing client response.");
-    }
-  });
+  clientData.ws.send(JSON.stringify(payload));
 });
 
 app.get("/", (req, res) => {
