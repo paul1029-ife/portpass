@@ -1,12 +1,13 @@
 {
   "name": "portpass",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Expose your local server to the internet instantly.",
   "type": "module",
   "bin": {
     "portpass": "./bin/cli.js"
   },
   "main": "index.js",
+  "license": "MIT",
   "dependencies": {
     "nanoid": "^5.0.4",
     "node-fetch": "^3.3.2",
